@@ -1,0 +1,77 @@
+\documentclass[12pt,twoside,openany]{report}
+
+% Import packages and set-up
+\input{1_PACKAGES/Packages.tex}
+\input{1_PACKAGES/Statics.tex}
+
+
+\begin{document}
+
+
+%Set-up the frontmatter
+\pagenumbering{roman}
+
+%Chapters for the frontmatter
+\input{2_FRONTMATTER/Frontpage}
+% \input{2_FRONTMATTER/Abbreviations}
+% \newpage
+\input{2_FRONTMATTER/Coverpage}
+\input{2_FRONTMATTER/Aknowledgements}
+\newpage
+\input{2_FRONTMATTER/Abstract.tex}
+\input{2_FRONTMATTER/DanskResume}
+\clearpage
+\tableofcontents
+\clearpage
+
+%Set-up main matter
+\pagenumbering{arabic}
+
+%Introduction
+\input{2_FRONTMATTER/Introduction}
+
+\input{4_Background/intro}
+\input{4_Background/decentralisation}
+
+%Theory
+\input{4_Theory/1_intro}
+\input{4_Theory/theory}
+
+
+\input{4_Design&Implementation/intro}
+\input{4_Design&Implementation/Design}
+\input{4_Design&Implementation/Implementation}
+%Methods
+% \input{4_Methods/1_intro.tex}
+
+\input{4_Results/Intro}
+\input{4_Results/results}
+
+%Results
+
+
+
+
+%Discussion
+\input{Discussion/intro}
+
+%Conclusion
+\input{Discussion/Conclusion}
+
+%Bibliography
+\renewcommand{\bibname}{References}
+\printbibliography[heading=bibintoc]
+\cleardoublepage
+
+%Appendix
+\appendix
+\input{2_APPENDIX/Results/Addresses}
+
+\input{2_APPENDIX/Results/ana1}
+\input{2_APPENDIX/Results/ana2}
+\input{2_APPENDIX/Results/data}
+
+
+\end{document}
+
+

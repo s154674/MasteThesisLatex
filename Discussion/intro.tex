@@ -1,0 +1,18 @@
+\chapter{Discussion}
+\label{Sec:Discussion}
+
+In the Cross-Domain MEV paper \cite{crossdomainMEV} they conclude by asking 5 open questions. One of the questions is "How can we identify and quantify cross-chain MEV extraction taking place?". In this work we have taken steps towards and actually succeeded in identifying cross-chain arbitrages. We have also gained deeper understanding of how difficult it is to quantify it. We limited the scope of this project by only looking and one DEX, namely Uniswap, in 4 domains, all EVM compatible. The complexity of including non-EVM domains (potentially including Centralised Exchanges) and a wider range of DEX architectures is almost staggering. This, combined with the coming of PoS Ethereum and the rise of LSD's and centralised staking services, the future effects of MEV and cross-domain MEV on decentralisation does look grim. 
+
+\section{Future work}
+
+The challenges in identifying and quantifying cross-domain MEV are many. Accessing the data in itself is an issue. Having to run and maintain nodes for every domain you wish to monitor is a huge job. Storing that amount of data takes work. Building classifiers, potentially using machine learning or other statistics tools, would take a lot of time. They would probably have to be fitted to the individual domains, increasing the complexity drastically. There are many questions here and not a lot of answers, and therefore much work to be done.  
+
+%We found cross domain arbitrage in the wild
+
+%We found a need to be able to quantitatively identify cross domain MEV in order to meaningfully quantify it
+
+% Previous work said this (it will be hard to find)
+
+% We have not found evidence to the contrary
+
+% Speculation with the rice of LSD and change to PoS, the landscape of cross domain MEV may change to look more like traditional finance dark pools? or what some suspect CEX already engage in. This is problematic because it looks very opaque.

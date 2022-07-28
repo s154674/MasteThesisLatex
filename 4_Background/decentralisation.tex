@@ -1,0 +1,38 @@
+\section{Bitcoin}
+
+% In the beginning was bitcoin, and bitcoin was good
+% There once was a boy named satoshi nakamoto
+
+In 2008, the Bitcoin whitepaper first saw the light of day\cite{btcwhite}. It described a peer-to-peer (P2P) network which allowed for online payments without having to rely on financial institutions. Instead it relied on putting transactions into blocks linked with hashes in a manner dubbed Proof of Work (PoW). This meant that users of the system could trust that their transactions would not be reverted as long as most of the participants in the network were not actively trying do undermine it. 
+
+This was good enough for people to start using it. In the early days it was not used for much, but in 2010 somebody bought a pizza and the year after, it was used for the buying and selling of illicit substances on the "Dark web"\cite{pizza}\cite{silkroad}. From there, Bitcoin gained popularity.
+
+At some point blocks began filling up. Previously so-called "Miners" had produced blocks for the Bitcoin network to claim the block reward.  The block reward is an amount of Bitcoin that the miner of a block can choose to attribute to anyone they desire, usually themselves. But as usage of the network increased and space for transactions in blocks was no longer abound, a culture of bribing miners to include your transactions emerged. Miners would include the transactions with the highest bribe in the blocks they produced, thus increasing the amount of Bitcoin they earned from mining the block. This behaviour continues to this day.
+
+Some people were unhappy with having to pay fees to use the network, as it collided with the idea of Bitcoin as internet money. This led to multiple forks of Bitcoin, eg. Bitcoin Cash and Litecoin. Bitcoin Cash wanted to increase the transaction throughput to a scale were the network could be used for day to day transactions, like buying coffee. To do this, the size and frequency of blocks was increased. This meant that the hardware requirements to run a node also increased, effectively trading decentralisation for performance.
+
+% Something forks over blockspace?
+
+% transaction ordering is hightes bribe in bitcoin but in etehreum its different
+
+
+% Something ethereum/smart contracts / mev osv osv.
+
+\section{Ethereum}
+
+For the first many years of its existence, transactions and miner bribes worked the same way on Ethereum as on the Bitcoin network. Even though transactions on Ethereum could do more that just transfer Ether from one user of the network to another, the sequencing of these transaction did not yet seem important. 
+
+Similarly to Bitcoin, there has been multiple forks of Ethereum with different goals, but usually trying to increase transaction throughput. Some of the earlier ones, like Tron and EOS are largely dead today, but others have come since, eg. Solana, Binance smartchain and Avalanche. These projects, like Bitcoin Cash, primarily aim to reduce network fees in order to get more users, by increasing block size and frequency. Most commonly this is done by a Delegated Proof of Stake (DPoS) consensus mechanism, meaning the validator set is permissioned and usually run in datacenters instead of consumer hardware. 
+
+As in Bitcoin, these forks sacrifice decentralisation in order to achieve scale. This trend has also been described as the scaleability trilemma \cite{vitalikscale}. The idea being that one can not meaningfully improve on one aspect of the trilemma (scaleability, decentralisation, security) without compromising on another. In the blogpost cited above, a solution to this trilemma is proposed in the form of sharding with data availability sampling. This is a part of the Ethereum Roadmap.
+
+\section{Ethereum Roadmap}
+
+The Ethereum Roadmap is a set of upgrades to the Ethereum protocol that the Ethereum foundation is working along with client teams to actualise. Ethereum has multiple client implementations that all run the protocol but on different tech stacks. That way, if one of the tech stacks has a vulnerability, the entire network is not at risk, only the nodes that run that specific client. The next two major upgrades coming are the merge (switching from PoW consensus to Proof of Stake (PoS)) and data sharding, the former being a requirement for the latter. These upgrades aim to achieve all sides of the trilemma. In other words, aims to build a decentralised, secure network that can settle a lot of transactions trustlessly. 
+
+% something something transition?
+% \section
+
+
+
+% This changed around the summer of 2017. With the growth of Decentralised Exchanges (DEX's), smart contracts on the Ethereum network that allowed for user to exchange tokens with each other in a trustless manner, some people realised that they were not flawless even though they were trustless. \cite{costofdex} These people hypothesised and demonstrated that by exploiting these flaws, Ether could be made. This soon lead to other people exploiting the flaws and competing to get their transaction included at the right time. This is also known as Priority Gas Auctions (PGA's).

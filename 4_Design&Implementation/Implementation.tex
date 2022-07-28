@@ -1,0 +1,266 @@
+\section{Implementation}
+
+In this section we will explain the implementation decisions made. All the code can be found here \cite{githubrepo}
+
+\subsection{Python and Django}
+
+Python is a programming language and Django is a web framework written in Python. Django has a Object Relation Mapping (ORM) which makes it easy to construct SQL like queries on data. It works by defining models that represent rows in a table. The models can then be handled with dictionary like structures, which makes them easy to manipulate with Python. Since we have prior experience with using Django and python, we chose these tools to help me manage the data. 
+
+\subsection{Models}
+A model in Django is a class that contains variables that Django refers to as fields. These fields can be described as types in typical relational databases. An example is seen below:
+
+\begin{lstlisting}[language=python]
+class SwapEvent(models.Model):
+    pool_address = models.ForeignKey(PoolAddresses, on_delete=models.PROTECT)
+    transaction_meta = models.ForeignKey(TransactionMeta, on_delete=models.PROTECT, null=True, default=None)
+    event_hash = models.CharField(max_length=256)
+    sender = models.CharField(max_length=256)
+    recipient = models.CharField(max_length=256)
+    amount0 = models.DecimalField(max_digits=77, decimal_places=0)
+    amount1 = models.DecimalField(max_digits=77, decimal_places=0)
+    sqrtPriceX96 = models.CharField(max_length=100)
+    liquidity = models.DecimalField(max_digits=77, decimal_places=0)
+    tick = models.DecimalField(max_digits=77, decimal_places=0)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['transaction_meta']),
+        ]
+\end{lstlisting}
+
+The top two variables in this SwapEvent class are what are called foreignkey fields. They refer to different objects. The SwapEvent is linked by foreign key to the PoolAddress model and the TransactionMeta model. PoolAddress contains information about the specific pool that the swap event came from, where TransactionMeta holds extra information about the transaction that emitted the Swap event to begin with. The specific objects that this foreign key points to cannot be deleted before the SwapEvent that points to them is deleted.
+
+The other fields are simpler. They refer to the type of the database column that will be used to store the value. CharFields gets converted to nvarchar columns, and DecimalField are used to hold numericals. We use DecimalFields instead of IntergerFields because we need to store bigger numbers than what IntgerFields allows. 
+
+Lastly models can define a subclass Meta, which allows for the creation of indexes, among other things. In this example the SwapEvent has an index on the foreign key to the TransactionMeta model. 
+
+
+\subsection{The Connector}
+
+The connector is implementet as a python class. This class has 3 interesting functions.
+
+\subsubsection{The initializer}
+\begin{lstlisting}[language=python]
+def __init__(self, network) -> None:
+    """ Initialize connector
+    """
+    self.network = network
+    
+    # Check valid network
+    if network in ["ARBI", "OPTI", "MAIN", "POLY"]:
+        
+        # Fetch correct addresses
+        if self.network == "ARBI":
+            temp = ArbitrumAddresses
+        if self.network == "OPTI":
+            temp = OptimismAddresses
+        if self.network == "MAIN":
+            temp = EthereumAddresses
+        if self.network == 'POLY':
+            temp = PolygonAddresses
+        
+        self.ERC20addresses = temp
+    else:
+        raise Exception(f"Not valid network name: {network}")
+\end{lstlisting}
+
+The initialiser takes one input, a network, which is a string that indicates which network the instantiator wishes to interact with. We take this string and check if its one of the networks it knows how to handle, and then find the corresponding ERC20 addresses of that network. These addresses are then stored in the class variable ERC20addresses for future use.
+
+\begin{lstlisting}[language=python]
+# Set fee tiers (only main and poly has 0.01 % tier)
+if self.network in ["MAIN", "POLY"]:
+    self.fees = MainPolyFees
+else:
+    self.fees = OptiArbiFees
+\end{lstlisting}
+        
+The next part of the initializer finds the correct fee tiers. These fee tiers are then stored in the class variable fees.
+
+\begin{lstlisting}[language=python]
+# Get W3 object
+self.w3 = Web3(Web3.HTTPProvider(secrets[f'{network}_URL']))
+
+# These are static, because they are deployed at the same addresses across networks
+self.router = self.w3.eth.contract(UniswapV3Addresses["ROUTER"].value, abi=get_abi("uniswapV3/router"))
+self.factory = self.w3.eth.contract(UniswapV3Addresses["FACTORY"].value, abi=get_abi("uniswapV3/factory"))
+
+# Pools are deployed by the factory, so we save the ABI here to use in the future.
+self.pool_abi = get_abi("uniswapV3/pool")
+self.pool_event_parser_contract = self.w3.eth.contract(abi=self.pool_abi)
+\end{lstlisting}
+
+Lastly we intialize a Web3 instance. Web3.py is a library used to connect to the Etheruem and Ethereum like networks using python. Using the Web3 instance that is initialised with a specific Infura url, we connect to the Uniswap router and factory on the specified network. Lastly we get the pool Application Binary Interface (ABI) and create a web3.contract instance that is not connected to a specific smart contract on chain, but will be used to parse event logs.
+
+
+\subsubsection{Get Pool Addresses} \label{getpooladd}
+\begin{lstlisting}[language=python]
+def get_pool_addresses(self):
+    """ Return the pool addresses. 
+    """
+    # For all unique ERC20 pairs
+    for pair in combinations(self.ERC20addresses, 2):
+        # For each fee tier
+        for fee in self.fees:
+            # print(pair[0].value, pair[1].value, fee.value)
+            pool_address = self.factory.functions.getPool(pair[0].value, pair[1].value, fee.value).call()
+            pool = self.w3.eth.contract(pool_address, abi=self.pool_abi)
+            
+            if pool_address != "0x0000000000000000000000000000000000000000":
+                yield self.ERC20addresses(pool.functions.token0().call()).name, self.ERC20addresses(pool.functions.token1().call()).name, fee, pool_address
+            else:
+                pass # Pool doesn't exists/hasn't been created yet
+\end{lstlisting}
+
+
+The purpose of this function is to return a range of values related to the pool addresses for all ERC20 pairs of all the fee tiers in the network. We do this by calling the getPool function of the Uniswap factory on the specified network. This, given two ERC20 addresses and a fee tier, provides the address of the pool. If the pool does not exists, getPool returns the zero-address. If we get the zero-address back, we do not include it in the results. If its not the zero-address, we yield the address of the ERC20 that token0 and token1 in the pool respectively, the fee tier and the address of the pool itself.
+
+\subsubsection{Get Swap Events}
+
+Get swap events is the big one. It takes a pool address and collect all the relevant swap events. 
+
+\begin{lstlisting}[language=python]
+# found by keccak256(b'Swap(address,address,int256,int256,uint160,uint128,int24)')
+swap_topic = "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+\end{lstlisting}
+
+First off, we need the topic hash. It is the keccak256 hash of the event name and variables it includes. Using this we can query the Infura API for only these events.
+
+\begin{lstlisting}[language=python]
+# Init list of block ranges
+block_ranges = []
+
+block_ranges.append(self.get_block_range())
+\end{lstlisting}
+
+Next up, we initialise the block range. This is the range of blocks that encompasses the span of days from the 1st of June to the 7th of July. We get them from calling a helper function, and append them to a list.
+
+
+\begin{lstlisting}[language=python]
+def split_ranges(lst, n):
+    "Splits range into n smaller chunks to get less API timeouts/too big response erros"
+    item = lst.pop()
+    if (item[1] - item[0]) > n:
+        amount = int(math.floor((item[1]-item[0])/n))
+        temp = item[0]
+        for i in range(n):
+            if i != (n-1):
+                temp = temp + amount
+                lst.append(((temp-amount),temp))
+            else:
+                lst.append((temp, item[1]))
+    else:
+        lst.append((item[0],item[1]))
+
+split_ranges(block_ranges, 6)
+\end{lstlisting}
+
+Now we split the range into smaller bits. The Infura API returns errors if it was going to return over 10.000 results or if the time of getting the result is greater than 10 seconds. In order to get less of these, we preemptively split the range into more sizeable chunks we can then pop off the list as we need them.
+
+\begin{lstlisting}[language=python]
+while block_ranges:
+    current_range = block_ranges.pop()
+    data = {"jsonrpc":"2.0","method":"eth_getLogs","params":[{'address': pool.address , 'fromBlock': hex(int(current_range[0])), 'toBlock': hex(int(current_range[1])) , 'topics': [swap_topic]}],"id":1}
+\end{lstlisting}
+
+We then enter a while loop, that keeps going as long as there are elements in the \texttt{block\_ranges} list. For each \texttt{block\_ranges} element we contruct a data payload using the block range as the parameters fromBlock and toBlock. These value tell Infura in which range we are looking for events. The Infura API only accepts these values and hexadecimals, which is why we convert them. The data payload also includes the method we are calling \texttt{("eth\_getLogs")}, the address of the pool we are currently looking at, and the Swap topic that we calculated before.
+
+\begin{lstlisting}[language=python]
+try:
+    r = requests.post(url=secrets[f'{self.network}_URL'], headers={"Content-Type": "application/json"}, data=dumps(data))
+    swap_events = loads(r.text)["result"]
+\end{lstlisting}
+
+We enter a try bock and submit the data payload to the Infura API using the requests library \cite{requests}. We then try to get the result from the response object, and if we fail we except the \texttt{KeyError} and handle it by further narrowing the current range we are querying. 
+
+
+\begin{lstlisting}[language=python]
+for event in swap_events:
+    parsed_event = self.event_parser(event)
+    event["blockNumber"] = int(event['blockNumber'], 16)
+    event["logIndex"] = int(event['logIndex'], 16)
+    obj = TransactionMeta(**event)
+
+    transaction_list.append(obj)
+    swaps_list.append(SwapEvent(transaction_meta=obj, pool_address=pool, **parsed_event.args))
+    # Bulk insert every 1000 objects
+    if len(swaps_list) > 1000:
+        TransactionMeta.objects.bulk_create(transaction_list)
+        transaction_list = []
+        SwapEvent.objects.bulk_create(swaps_list)
+        swaps_list = []
+
+# insert tail if present
+if transaction_list:
+    TransactionMeta.objects.bulk_create(transaction_list)
+if swaps_list:
+    SwapEvent.objects.bulk_create(swaps_list)
+\end{lstlisting}
+
+
+Lastly, we loop over all the events why found and parse them into the Django models we made to store them. We insert them in bulks of 1000 at a time, and then insert the tail if there is one. 
+
+
+
+\subsection{Populating Tables}
+Now for actually getting the data.
+\begin{lstlisting}[language=python]
+# Get or create ERC20's
+WETH = ERC20.objects.get_or_create(name="Wrapped Ether", symbol="WETH")[0]
+WBTC = ERC20.objects.get_or_create(name="Wrapped Bitcoin", symbol="WBTC", decimals=8)[0]
+DAI  = ERC20.objects.get_or_create(name="DAI stablecoin", symbol="DAI")[0]
+USDC = ERC20.objects.get_or_create(name="USDC stablecoin", symbol="USDC", decimals=6)[0]
+USDT = ERC20.objects.get_or_create(name="USDT stablecoin", symbol="USDT", decimals=6)[0]
+\end{lstlisting}
+ 
+First we create (or fetch) ERC20 models for the tokens we wish to gather events from. These tokens were chosen for their trading volume and prevalence in use by traditional MEV extraction.
+
+\begin{lstlisting}[language=python]
+# Get or create networks
+MAIN = Networks.objects.get_or_create(name="Mainnet Ethereum", chain_id=1, short="MAIN")[0]
+ARBI = Networks.objects.get_or_create(name="Arbitrum One", chain_id=42161, short="ARBI")[0]
+OPTI = Networks.objects.get_or_create(name="Optimism", chain_id=10, short="OPTI")[0]
+POLY = Networks.objects.get_or_create(name="Mainnet Polygon", chain_id=137, short="POLY")[0]
+\end{lstlisting}
+
+Then we create the objects for the Networks model. These objects are used mostly as a foreign key in other models so that we can filter them by which network they belong too.
+
+
+\begin{lstlisting}[language=python]
+# Load ERC20 addresses form Enums
+AddressEnums = [EthereumAddresses, ArbitrumAddresses, OptimismAddresses, PolygonAddresses]
+networks = [MAIN, ARBI, OPTI, POLY]
+for i in range(4):
+    for coin in ERC20.objects.all():
+        ERC20Addresses.objects.get_or_create(network=networks[i], ERC20=coin, address=AddressEnums[i][coin.symbol].value)
+\end{lstlisting}
+
+The addresses for the different tokens on different networks are predefined in Enums. Here we extract them and create instance of the ERC20Addresses model for each of them in turn.
+
+
+\begin{lstlisting}[language=python]
+# Fetch all the pool addresses
+if not PoolAddresses.objects.all().exists():
+    for network in ["MAIN", "ARBI", "OPTI", "POLY"]:
+        con = UniConnector(network)
+        for token0, token1, fee, address in con.get_pool_addresses():
+            PoolAddresses.objects.create(network=Networks.objects.get(short=network), token0=ERC20.objects.get(symbol=token0), token1=ERC20.objects.get(symbol=token1), fee_tier=fee.value, address=address)
+\end{lstlisting}
+
+Here we first check that no PoolAddresses exists. If they do not, we populate the model with all the different pools from all the different networks. This is done using the \texttt{get\_pool\_addresses()} function that is described in \ref{getpooladd}.
+
+
+\begin{lstlisting}[language=python]
+if not SwapEvent.objects.all().exists():
+    for i, network in enumerate(networks):
+        print(f"Parsing swap events for network {network.short} - {i+1} of {len(networks)}")
+        pool_addresses = PoolAddresses.objects.filter(network=network)
+        for i, pool in enumerate(pool_addresses):
+
+            print(f"Parsing swap events for pool address id {pool.pk} - {i+1} of {len(pool_addresses)}")
+            start = time.time()
+            con = UniConnector(network.short)
+            con.get_swap_events(pool)
+            print(f'Took {time.time()-start}')
+\end{lstlisting}
+
+Lastly we get the SwapEvents. We do this by going through each a every pool and using the \texttt{get\_swap\_events()}, also described in \ref{getpooladd}. This took quite a bit of time, so some print statements were added to verify it was indeed getting data and monitor the rate of the extraction. 
